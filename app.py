@@ -12,14 +12,20 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 #gemini pro api response
 
-def get_gemini_response(input):
+def get_gemini_response(input,pdf_content,prompt):
+    """
+    This function is used to get the response from the gemini api
+    """
     model = genai.GenerativeModel('gemini-pro')
-    response = model.generate_content(input)
+    response = model.generate_content([input,pdf_content[0],prompt])
 
     return response.text
 
 #handling the pdf
 def input_pdf_text(uploaded_file):
+    """
+    This function is used to get the pdf content from the uploaded file
+    """
     reader = pdf.PdfReader(uploaded_file)
     text = ""
 
@@ -31,77 +37,73 @@ def input_pdf_text(uploaded_file):
     return text
 
 
-# Prompt Template
-input_prompt = """
-Hey, act like a highly skilled and experienced ATS (Application Tracking System) with deep expertise in the tech field, including software engineering, data science, data analysis, and big data engineering. Your task is to evaluate the provided resume against the given job description with a high degree of accuracy. The job market is very competitive, so you must provide the best possible assistance for improving the resume. Assign the percentage matching based on the job description and identify the missing keywords with high accuracy.
+# Streamlit application (UI)
+    
 
-Your evaluation should include the following components:
-1. JD Match Percentage: Calculate the percentage match between the resume and the job description.
-2. Missing Keywords: Identify any missing keywords that are crucial for the job description.
-3. Profile Summary: Summarize the candidate’s profile based on the resume and how well it fits the job description.
-4. Education Background Check: Specifically check if the candidate’s educational background meets the requirements stated in the job description.
-5: Check Project work: check the project section and experience section and find out the technical skills and if some are remaining find out them and suggest a good project that one should add inorder to be hired for the role. Give example name and problem statement too
-Consider the following details from both the resume and the job description:
-- Relevant skills and technologies.
-- Work experience and roles.
-- Educational qualifications.
-- Certifications (if any).
-- Specific projects or achievements relevant to the job description.
+st.set_page_config(page_title = "ATS Resume Expert")
+st.header("ATS Tracking System Version: 0.0.1")
 
-Provide your response in a single structured string with the following format:
-{{"JD Match":"<percentage>%","MissingKeywords":[<keywords>],"Profile Summary":"<summary>","Project That this person should add in the resume":[<Name of projects>]}}
+input_text = st.text_area("Job Description: ",key = "input") #JD
 
-Here are the details for evaluation:
-- Resume: {text}
-- Job Description: {jd}
+uploaded_file = st.file_uploader("Upload your Resume (in pdf format): ", type=["pdf"])
+
+if uploaded_file is not None:
+    st.write("PDF Uploaded Sucessfully")
+
+
+submit1 = st.button("Tell Me About the Resume")
+
+submit2 = st.button("How Can I Improvise my Resume")
+
+submit3 = st.button("Missing Keywords and Percentage Match")
+
+input_prompt1 = """
+ You are an experienced Technical Human Resource Manager,your task is to review the provided resume against the job description. 
+  Please share your professional evaluation on whether the candidate's profile aligns with the role. 
+  Highlight the strengths and weaknesses of the applicant in relation to the specified job requirements.
 """
 
-# Streamlit app
-st.title("Smart ATS")
-st.text("Improve Your Resume for ATS")
+input_prompt2 = """
+You are an experienced Technical Human Resource Manager, your task is to review the provided resume against the job description.
+Provide the output with emphasis on missing skills and how the candidate can improve their Resume in general. For instance, you can mention any typos or grammatical errors.
+"""     
 
-jd = st.text_area("Paste the Job Description")
-uploaded_file = st.file_uploader("Upload Your Resume", type="pdf", help="Please upload the PDF")
+input_prompt3 = """
+You are an skilled ATS (Applicant Tracking System) scanner with a deep understanding of data science and ATS functionality, 
+your task is to evaluate the resume against the provided job description. give me the percentage of match if the resume matches
+the job description. First, The output should come up as Percentage Match and then, the missing keywords.
+"""     
 
-if st.button("Submit"):
-    if uploaded_file is not None and jd is not None:
-        text = input_pdf_text(uploaded_file)
-        prompt = input_prompt.format(text=text, jd=jd)
-        
-        response_text = get_gemini_response(prompt)
-        
-        # Parse the JSON response
-        response_json = json.loads(response_text)
-        
-        st.subheader("Job Description Match Percentage")
-        st.write(response_json["JD Match"])
 
-        st.subheader("Missing Keywords")
-        st.write(", ".join(response_json["MissingKeywords"]))
+if submit1:
+    if uploaded_file is not None:
+        pdf_content = input_pdf_text(uploaded_file)
+        response = get_gemini_response(input_text,pdf_content,input_prompt1)
 
-        st.subheader("Profile Summary")
-        st.write(response_json["Profile Summary"])
-
-        st.subheader("Recommended Improvements")
-        st.write("Here are some areas you can improve in your resume based on the job description:")
-        # This can include more detailed feedback, parsing the profile summary and missing keywords to generate actionable items.
-        improvements = []
-        if "education" in response_json["Profile Summary"].lower():
-            improvements.append("Ensure your education section meets the job requirements.")
-        if response_json["MissingKeywords"]:
-            improvements.append("Include the missing keywords in your resume: " + ", ".join(response_json["MissingKeywords"]))
-        
-        projects = response_json.get("Project That this person should add in the resume")
-        if projects:
-            if isinstance(projects, list):
-                project_names = [project.get("Name of projects", "") for project in projects]
-                project_str = ", ".join(project_names)
-                improvements.append("Projects: " + project_str)
-            else:
-                project_name = projects.get("Name of projects", "")
-                improvements.append("Projects: " + project_name)
-        
-        for improvement in improvements:
-            st.write(f"- {improvement}")
+        st.subheader("The Response is :")
+        st.write(response)
+    
     else:
-        st.write("Please ensure you have submitted all the required materials")
+        st.write("Please Upload the resume")
+
+elif submit2:
+    if uploaded_file is not None:
+        pdf_content = input_pdf_text(uploaded_file)
+        response = get_gemini_response(input_text,pdf_content,input_prompt2)
+
+        st.subheader("The Response is :")
+        st.write(response)
+    
+    else:
+        st.write("Please Upload the resume")
+
+elif submit3:
+    if uploaded_file is not None:
+        pdf_content = input_pdf_text(uploaded_file)
+        response = get_gemini_response(input_text,pdf_content,input_prompt3)
+
+        st.subheader("The Response is :")
+        st.write(response)
+    
+    else:
+        st.write("Please Upload the resume")
